@@ -108,7 +108,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"<YOUR_GROUP_ID>@g.us\",\n  \"options\": {\n    \"delay\": 1200,\n    \"presence\": \"composing\"\n  },\n  \"text\": {{ JSON.stringify($json.message) }}\n}",
+        "jsonBody": "={\n  \"number\": \"<YOUR_GROUP_ID>@g.us\",\n  \"options\": {\n    \"delay\": 1200,\n    \"presence\": \"composing\"\n  },\n  \"text\": $json.message\n}",
         "options": {}
       },
       "id": "4",
