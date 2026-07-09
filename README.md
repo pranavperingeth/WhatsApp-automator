@@ -56,7 +56,18 @@ This isn't a simple script that blindly sends messages every time it runs. The J
 
 ## 🚀 Setup Instructions
 
-### 1. Start the Services
+### 1. Configure Secrets (.env)
+
+For security, API keys and database passwords should never be hardcoded or pushed to GitHub.
+
+1. Rename the `.env.example` file to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Open `.env` and replace the placeholder values with your own secure passwords and API keys. 
+*(Note: Your `.env` file is safely ignored by Git and will not be uploaded to GitHub).*
+
+### 2. Start the Services
 
 Run the following command in this directory to start n8n, Evolution API, and Redis in the background:
 
@@ -64,14 +75,14 @@ Run the following command in this directory to start n8n, Evolution API, and Red
 docker compose up -d
 ```
 
-### 2. Connect Your WhatsApp (Evolution API)
+### 3. Connect Your WhatsApp (Evolution API)
 
-The Evolution API needs to be linked to your WhatsApp number. We use a static API key (`my_global_api_key_123` as defined in `docker-compose.yml`) to authenticate internal requests.
+The Evolution API needs to be linked to your WhatsApp number. Use the `EVOLUTION_API_KEY` you set in your `.env` file to authenticate this request.
 
 1. **Create Instance:**
    ```bash
    curl --location --request POST 'http://localhost:8080/instance/create' \
-   --header 'apikey: my_global_api_key_123' \
+   --header 'apikey: YOUR_EVOLUTION_API_KEY_HERE' \
    --header 'Content-Type: application/json' \
    --data-raw '{
        "instanceName": "myinstance",
@@ -83,13 +94,14 @@ The Evolution API needs to be linked to your WhatsApp number. We use a static AP
 2. **Scan the QR Code:**
    The API will return a base64 string of a QR code in the response. Convert the base64 string to an image online and scan it with your WhatsApp application (*Linked Devices -> Link a Device*).
 
-### 3. Setup n8n
+### 4. Setup n8n
 
 1. Go to `http://localhost:5678` in your browser.
 2. Create an owner account for your local n8n instance.
 3. Import the `workflow.json` file into the n8n canvas.
 4. **Configure the Workflow**:
    - Open the **Send WhatsApp** node in n8n.
+   - Replace the `apikey` header value with your actual `.env` API Key.
    - Replace `<YOUR_GROUP_ID>@g.us` in the JSON body with your actual WhatsApp Group ID.
 5. Click **Publish** in the top right corner to activate the workflow!
 
@@ -101,6 +113,6 @@ If you create a new WhatsApp group and need to find its internal ID, use this Ev
 
 ```bash
 curl --location --request GET 'http://localhost:8080/group/fetchAllGroups/myinstance?getParticipants=false' \
---header 'apikey: my_global_api_key_123'
+--header 'apikey: YOUR_EVOLUTION_API_KEY_HERE'
 ```
 Look for the `id` of your target group in the JSON response.

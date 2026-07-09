@@ -102,7 +102,7 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "my_global_api_key_123"
+              "value": "<YOUR_EVOLUTION_API_KEY>"
             }
           ]
         },
