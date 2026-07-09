@@ -44,7 +44,7 @@
         "url": "https://leetcode.com/graphql",
         "sendBody": true,
         "contentType": "raw",
-        "rawBody": "{\n  \"query\": \"{ topTwoContests { title titleSlug startTime duration } }\"\n}",
+        "sendHeaders": true, "headerParameters": { "parameters": [ { "name": "Content-Type", "value": "application/json" }, { "name": "Referer", "value": "https://leetcode.com/" }, { "name": "User-Agent", "value": "Mozilla/5.0" } ] }, "specifyBody": "json", "jsonBody": "{\n  \"query\": \"{ topTwoContests { title titleSlug startTime duration } }\"\n}",
         "options": {}
       },
       "id": "2",
