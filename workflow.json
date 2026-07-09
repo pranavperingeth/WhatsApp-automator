@@ -6,28 +6,26 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 24
+              "field": "minutes",
+              "minutesInterval": 60
             }
           ]
         }
       },
-      "id": "e0b51336-6db2-4bb3-93d3-885bb3c5b8e9",
+      "id": "1",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1,
+      "typeVersion": 1.2,
       "position": [ 100, 300 ]
     },
     {
       "parameters": {
+        "method": "GET",
         "url": "https://codeforces.com/api/contest.list",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {
-              "name": "gym",
-              "value": "false"
-            }
+            { "name": "gym", "value": "false" }
           ]
         },
         "options": {}
@@ -42,9 +40,17 @@
       "parameters": {
         "method": "POST",
         "url": "https://leetcode.com/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Referer", "value": "https://leetcode.com/" },
+            { "name": "User-Agent", "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36)" }
+          ]
+        },
         "sendBody": true,
-        "contentType": "raw",
-        "sendHeaders": true, "headerParameters": { "parameters": [ { "name": "Content-Type", "value": "application/json" }, { "name": "Referer", "value": "https://leetcode.com/" }, { "name": "User-Agent", "value": "Mozilla/5.0" } ] }, "specifyBody": "json", "jsonBody": "{\n  \"query\": \"{ topTwoContests { title titleSlug startTime duration } }\"\n}",
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"query\": \"{ topTwoContests { title titleSlug startTime duration } }\"\n}",
         "options": {}
       },
       "id": "2",
@@ -55,7 +61,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const cfData = $('Fetch Codeforces').first().json.result || [];\nconst lcData = $('Fetch LeetCode').first().json.data.topTwoContests || [];\n\nconst now = Math.floor(Date.now() / 1000);\nconst future24h = now + 24 * 60 * 60;\n\nlet message = '*Upcoming Contests (Next 24 Hours)*\\n\\n';\nlet hasContests = false;\n\n// Process Codeforces\nconst cfUpcoming = cfData.filter(c => c.phase === 'BEFORE' && c.startTimeSeconds <= future24h);\nif (cfUpcoming.length > 0) {\n  message += '*Codeforces:*\\n';\n  cfUpcoming.forEach(c => {\n    message += `- ${c.name} (Start: ${new Date(c.startTimeSeconds * 1000).toLocaleString()})\\n`;\n  });\n  hasContests = true;\n}\n\n// Process LeetCode\nconst lcUpcoming = lcData.filter(c => c.startTime <= future24h && c.startTime >= now);\nif (lcUpcoming.length > 0) {\n  message += '\\n*LeetCode:*\\n';\n  lcUpcoming.forEach(c => {\n    message += `- ${c.title} (Start: ${new Date(c.startTime * 1000).toLocaleString()})\\n`;\n  });\n  hasContests = true;\n}\n\nif (!hasContests) {\n  message = 'No contests in the next 24 hours.';\n}\n\nreturn { message, hasContests };"
+        "jsCode": "const cfData = $('Fetch Codeforces').first().json.result || [];\nconst lcData = $('Fetch LeetCode').first().json.data.topTwoContests || [];\n\nconst now = Math.floor(Date.now() / 1000);\nconst d = new Date();\nconst currentDay = d.getDay(); // 0 (Sun) to 6 (Sat)\nconst currentHour = d.getHours(); // 0 to 23\n\nlet message = \"\";\nlet send = false;\n\n// Format helper\nfunction getTimeRemaining(startTime) {\n  const diff = startTime - now;\n  const days = Math.floor(diff / (24 * 60 * 60));\n  const hours = Math.floor((diff % (24 * 60 * 60)) / (60 * 60));\n  if (days === 0 && hours === 0) return \"in less than an hour!\";\n  if (days === 0) return `in ${hours} hour${hours > 1 ? \"s\" : \"\"}`;\n  if (hours === 0) return `in ${days} day${days > 1 ? \"s\" : \"\"}`;\n  return `in ${days} day${days > 1 ? \"s\" : \"\"} and ${hours} hour${hours > 1 ? \"s\" : \"\"}`;\n}\n\n// Find next contests\nconst cfUpcoming = cfData.filter(c => c.phase === \"BEFORE\" && c.startTimeSeconds >= now);\ncfUpcoming.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);\nconst nextCf = cfUpcoming.length > 0 ? cfUpcoming[0] : null;\n\nconst lcUpcoming = lcData.filter(c => c.startTime >= now);\nlcUpcoming.sort((a, b) => a.startTime - b.startTime);\nconst nextLc = lcUpcoming.length > 0 ? lcUpcoming[0] : null;\n\n// 1. Check for 1 HOUR REMINDER (Starts in >0 and <=75 mins to be safe if running hourly)\nlet oneHourAlerts = [];\nif (nextCf && (nextCf.startTimeSeconds - now) <= 75 * 60 && (nextCf.startTimeSeconds - now) > 0) {\n  oneHourAlerts.push(`*Codeforces:* ${nextCf.name}`);\n}\nif (nextLc && (nextLc.startTime - now) <= 75 * 60 && (nextLc.startTime - now) > 0) {\n  oneHourAlerts.push(`*LeetCode:* ${nextLc.title}`);\n}\n\n// 2. Check for MORNING OF CONTEST (Starts today, and it is 9 AM)\nlet morningAlerts = [];\nif (currentHour === 9) {\n  if (nextCf && (nextCf.startTimeSeconds - now) <= 24 * 3600) {\n      morningAlerts.push(`*Codeforces:* ${nextCf.name} (Starts ${getTimeRemaining(nextCf.startTimeSeconds)})`);\n  }\n  if (nextLc && (nextLc.startTime - now) <= 24 * 3600) {\n      morningAlerts.push(`*LeetCode:* ${nextLc.title} (Starts ${getTimeRemaining(nextLc.startTime)})`);\n  }\n}\n\n// Evaluate Conditions\nif (oneHourAlerts.length > 0) {\n  message = \"🔥 *CONTEST STARTING IN 1 HOUR!* 🔥\\n\\n\" + oneHourAlerts.join(\"\\n\");\n  send = true;\n} \nelse if (morningAlerts.length > 0) {\n  message = \"🌅 *Contest Today!* Good morning, get ready:\\n\\n\" + morningAlerts.join(\"\\n\");\n  send = true;\n} \nelse if (currentHour === 9 && (currentDay === 1 || currentDay === 4)) {\n  // Monday(1) or Thursday(4) at 9 AM: Weekly Overview\n  message = \"*📅 Weekly Contest Overview*\\n\\n\";\n  if (nextCf) message += `*Codeforces:* ${nextCf.name} is ${getTimeRemaining(nextCf.startTimeSeconds)}\\n`;\n  if (nextLc) message += `*LeetCode:* ${nextLc.title} is ${getTimeRemaining(nextLc.startTime)}\\n`;\n  send = true;\n}\n\nif (!send) {\n  return []; // Stop workflow, do not send anything\n}\n\nreturn { message };"
       },
       "id": "3",
       "name": "Format Message",
@@ -70,15 +76,12 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "my_global_api_key_123"
-            }
+            { "name": "apikey", "value": "my_global_api_key_123" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"YOUR_GROUP_ID_HERE\",\n  \"options\": {\n    \"delay\": 1200,\n    \"presence\": \"composing\"\n  },\n  \"textMessage\": {\n    \"text\": \"{{ $json.message }}\"\n  }\n}",
+        "jsonBody": "={\n  \"number\": \"120363427363552267@g.us\",\n  \"options\": {\n    \"delay\": 1200,\n    \"presence\": \"composing\"\n  },\n  \"text\": \"{{ $json.message }}\"\n}",
         "options": {}
       },
       "id": "4",
