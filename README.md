@@ -35,12 +35,12 @@ This project is built entirely on a containerized microservices architecture to 
 This isn't a simple script that blindly sends messages every time it runs. The Javascript "brain" utilizes **n8n's Static Data (Memory)** to persist state between executions, creating intelligent, anti-spam alerts based on specific conditions:
 
 ### 1. Weekly Contest Overview (Mondays & Thursdays)
-* **When:** Any time at or after 6:00 PM (IST) on a Monday or Thursday.
+* **When:** Any time at or after 6:00 PM (IST) on a Monday or Thursday (even if you turn your laptop on late!).
 * **What:** Sends a calendar summary of the *next* upcoming contest for both Codeforces and LeetCode, even if they are days away.
-* **Anti-Spam:** It saves the date to memory. If the schedule triggers again later that night, it realizes it already sent the summary today and stays silent.
+* **Anti-Spam:** It saves the date to memory. If you close your laptop and open it again later that night, it realizes it already sent the summary today and stays silent.
 
 ### 2. Morning "Contest Today" Alert
-* **When:** The morning of any day where a contest is scheduled to happen. 
+* **When:** The first time you turn on your laptop on any day where a contest is scheduled to happen. 
 * **What:** Sends a "Good luck!" reminder detailing the platform, division, start time, and duration of today's contests.
 * **Anti-Spam:** Only triggers once per day. If both Codeforces and LeetCode have a contest on the exact same day, it gracefully bundles them into a single neat message. 
 
