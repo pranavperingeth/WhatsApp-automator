@@ -1,0 +1,137 @@
+{
+  "name": "Fetch Contests to WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "e0b51336-6db2-4bb3-93d3-885bb3c5b8e9",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [ 100, 300 ]
+    },
+    {
+      "parameters": {
+        "url": "https://codeforces.com/api/contest.list",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "gym",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "141de8b2-b7f3-4fb0-a734-9de54848d7c4",
+      "name": "Fetch Codeforces",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [ 300, 300 ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://leetcode.com/graphql",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawBody": "{\n  \"query\": \"{ topTwoContests { title titleSlug startTime duration } }\"\n}",
+        "options": {}
+      },
+      "id": "2",
+      "name": "Fetch LeetCode",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [ 500, 300 ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfData = $('Fetch Codeforces').first().json.result || [];\nconst lcData = $('Fetch LeetCode').first().json.data.topTwoContests || [];\n\nconst now = Math.floor(Date.now() / 1000);\nconst future24h = now + 24 * 60 * 60;\n\nlet message = '*Upcoming Contests (Next 24 Hours)*\\n\\n';\nlet hasContests = false;\n\n// Process Codeforces\nconst cfUpcoming = cfData.filter(c => c.phase === 'BEFORE' && c.startTimeSeconds <= future24h);\nif (cfUpcoming.length > 0) {\n  message += '*Codeforces:*\\n';\n  cfUpcoming.forEach(c => {\n    message += `- ${c.name} (Start: ${new Date(c.startTimeSeconds * 1000).toLocaleString()})\\n`;\n  });\n  hasContests = true;\n}\n\n// Process LeetCode\nconst lcUpcoming = lcData.filter(c => c.startTime <= future24h && c.startTime >= now);\nif (lcUpcoming.length > 0) {\n  message += '\\n*LeetCode:*\\n';\n  lcUpcoming.forEach(c => {\n    message += `- ${c.title} (Start: ${new Date(c.startTime * 1000).toLocaleString()})\\n`;\n  });\n  hasContests = true;\n}\n\nif (!hasContests) {\n  message = 'No contests in the next 24 hours.';\n}\n\nreturn { message, hasContests };"
+      },
+      "id": "3",
+      "name": "Format Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ 700, 300 ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution-api:8080/message/sendText/myinstance",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "my_global_api_key_123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"YOUR_GROUP_ID_HERE\",\n  \"options\": {\n    \"delay\": 1200,\n    \"presence\": \"composing\"\n  },\n  \"textMessage\": {\n    \"text\": \"{{ $json.message }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "4",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [ 900, 300 ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Codeforces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Codeforces": {
+      "main": [
+        [
+          {
+            "node": "Fetch LeetCode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch LeetCode": {
+      "main": [
+        [
+          {
+            "node": "Format Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

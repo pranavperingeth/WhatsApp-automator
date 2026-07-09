@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=Asia/Kolkata
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  evolution-api:
+    image: evolutionapi/evolution-api:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_URL=http://localhost:8080
+      - DOCKER_ENV=true
+      - LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,FATAL
+      - AUTHENTICATION_API_KEY=my_global_api_key_123 # You can change this
+      - AUTHENTICATION_TYPE=apikey
+      - DATABASE_PROVIDER=sqlite
+      - DATABASE_CONNECTION_URI=file:./db.sqlite
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+
+volumes:
+  n8n_data:
+  evolution_instances:
+  evolution_store:
