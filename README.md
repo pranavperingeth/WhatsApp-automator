@@ -14,7 +14,7 @@ This project automates fetching upcoming LeetCode and Codeforces contests and se
 Run the following command in this directory to start n8n and Evolution API in the background:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 2. Connect Your WhatsApp (Evolution API)
