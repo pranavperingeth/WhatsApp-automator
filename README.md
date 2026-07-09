@@ -1,6 +1,7 @@
 <div align="center">
-  <h1>🏆 WhatsApp Contest Automator 🤖</h1>
-  <p>An intelligent, state-aware WhatsApp automation system that fetches upcoming programming contests from <b>Codeforces</b> and <b>LeetCode</b> and alerts your WhatsApp group so you never miss a contest again.</p>
+  <img src="logo.png" alt="CP HUB Logo" width="250" style="border-radius: 10px; margin-bottom: 20px;"/>
+  <h1>🏆 CP HUB Contest Automator 🤖</h1>
+  <p>The official automated WhatsApp notification system for <b>CP HUB</b>. An intelligent, state-aware bot that fetches upcoming programming contests from <b>Codeforces</b> and <b>LeetCode</b> to keep the community informed and ready to code!</p>
 
   ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
   ![n8n](https://img.shields.io/badge/n8n-%23FF6C37.svg?style=for-the-badge&logo=n8n&logoColor=white)
