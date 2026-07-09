@@ -25,16 +25,30 @@ services:
       - SERVER_URL=http://localhost:8080
       - DOCKER_ENV=true
       - LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,FATAL
-      - AUTHENTICATION_API_KEY=my_global_api_key_123 # You can change this
+      - AUTHENTICATION_API_KEY=my_global_api_key_123
       - AUTHENTICATION_TYPE=apikey
-      - DATABASE_PROVIDER=sqlite
-      - DATABASE_CONNECTION_URI=file:./db.sqlite
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://postgres:postgres@postgres:5432/evolution?schema=public
       - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+    depends_on:
+      - postgres
     volumes:
       - evolution_instances:/evolution/instances
       - evolution_store:/evolution/store
+
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=evolution
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
   n8n_data:
   evolution_instances:
   evolution_store:
+  postgres_data:
