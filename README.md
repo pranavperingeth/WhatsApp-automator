@@ -116,3 +116,63 @@ curl --location --request GET 'http://localhost:8080/group/fetchAllGroups/myinst
 --header 'apikey: YOUR_EVOLUTION_API_KEY_HERE'
 ```
 Look for the `id` of your target group in the JSON response.
+
+---
+
+## 💻 Wake Listener Workaround (For Laptops)
+
+If you are running this stack locally on a laptop rather than a 24/7 cloud server, your machine will likely go to sleep. **n8n's Schedule Trigger does not retroactively fire missed executions** when the machine wakes up.
+
+To ensure you don't miss contest alerts that happened while your laptop was asleep, we've implemented a "Wake Listener" that instantly pings a Webhook in n8n the moment your computer lid is opened.
+
+### For macOS
+
+The macOS setup uses a native Python Cocoa daemon to listen for `NSWorkspaceDidWakeNotification`.
+
+1. **Install Dependencies:**
+   ```bash
+   pip3 install pyobjc-framework-Cocoa --break-system-packages
+   ```
+2. **Move the Script:**
+   Ensure `wake_listener.py` is located in `~/.local/bin/wake_listener.py` to bypass macOS strict privacy restrictions.
+3. **Configure the Daemon:**
+   Create a file at `~/Library/LaunchAgents/com.pranav.wakelistener.plist` with the following content:
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+       <key>Label</key>
+       <string>com.pranav.wakelistener</string>
+       <key>ProgramArguments</key>
+       <array>
+           <string>/usr/bin/python3</string>
+           <string>/Users/pranavperingeth/.local/bin/wake_listener.py</string>
+       </array>
+       <key>RunAtLoad</key>
+       <true/>
+       <key>KeepAlive</key>
+       <true/>
+   </dict>
+   </plist>
+   ```
+4. **Load the Daemon:**
+   ```bash
+   launchctl load ~/Library/LaunchAgents/com.pranav.wakelistener.plist
+   ```
+
+### For Windows
+
+On Windows, you do not need a Python script. You can achieve this natively using the built-in **Task Scheduler**.
+
+1. Open **Task Scheduler** and click **Create Task...**.
+2. **General Tab:** Name it `n8n Wake Listener`.
+3. **Triggers Tab:** Click New. Begin the task **On an event**.
+   - Log: `System`
+   - Source: `Power-Troubleshooter`
+   - Event ID: `1` (This corresponds to the system waking from sleep).
+4. **Actions Tab:** Click New. 
+   - Action: `Start a program`
+   - Program/script: `powershell.exe`
+   - Add arguments: `-WindowStyle Hidden -Command "Invoke-RestMethod -Uri 'http://localhost:5678/webhook/contest-check' -Method Post"`
+5. Save the task. Now, every time you unlock your Windows laptop, it will instantly ping n8n to catch up on any alerts!
