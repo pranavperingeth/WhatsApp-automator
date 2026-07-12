@@ -129,14 +129,28 @@ To ensure you don't miss contest alerts that happened while your laptop was asle
 
 The macOS setup uses a native Python Cocoa daemon to listen for `NSWorkspaceDidWakeNotification`.
 
+> **⚠️ Important:** `launchd` strips all shell environment variables, so it won't find pyobjc if you point it directly at `/usr/bin/python3`. You must use a bash wrapper that calls the exact Python binary that has pyobjc installed.
+
 1. **Install Dependencies:**
    ```bash
-   pip3 install pyobjc-framework-Cocoa --break-system-packages
+   pip3 install pyobjc-framework-Cocoa
+   which python3   # Note this full path — you'll need it in the wrapper
    ```
-2. **Move the Script:**
-   Ensure `wake_listener.py` is located in `~/.local/bin/wake_listener.py` to bypass macOS strict privacy restrictions.
-3. **Configure the Daemon:**
-   Create a file at `~/Library/LaunchAgents/com.pranav.wakelistener.plist` with the following content:
+2. **Copy the script to a safe location:**
+   ```bash
+   mkdir -p ~/.local/bin
+   cp wake_listener.py ~/.local/bin/wake_listener.py
+   ```
+3. **Create a bash wrapper** at `~/.local/bin/run_wake_listener.sh`:
+   ```bash
+   #!/bin/bash
+   exec /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 ~/.local/bin/wake_listener.py
+   ```
+   Replace the Python path with the output of `which python3`. Then make it executable:
+   ```bash
+   chmod +x ~/.local/bin/run_wake_listener.sh
+   ```
+4. **Create the LaunchAgent** at `~/Library/LaunchAgents/com.pranav.wakelistener.plist`:
    ```xml
    <?xml version="1.0" encoding="UTF-8"?>
    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -146,19 +160,25 @@ The macOS setup uses a native Python Cocoa daemon to listen for `NSWorkspaceDidW
        <string>com.pranav.wakelistener</string>
        <key>ProgramArguments</key>
        <array>
-           <string>/usr/bin/python3</string>
-           <string>/Users/pranavperingeth/.local/bin/wake_listener.py</string>
+           <string>/bin/bash</string>
+           <string>/Users/YOUR_USERNAME/.local/bin/run_wake_listener.sh</string>
        </array>
        <key>RunAtLoad</key>
        <true/>
        <key>KeepAlive</key>
        <true/>
+       <key>StandardErrorPath</key>
+       <string>/tmp/wakelistener.err</string>
+       <key>StandardOutPath</key>
+       <string>/tmp/wakelistener.out</string>
    </dict>
    </plist>
    ```
-4. **Load the Daemon:**
+5. **Load and verify the daemon:**
    ```bash
    launchctl load ~/Library/LaunchAgents/com.pranav.wakelistener.plist
+   launchctl list | grep wakelistener   # Should show a PID and exit code 0
+   cat /tmp/wakelistener.err            # Should be empty if working correctly
    ```
 
 ### For Windows
