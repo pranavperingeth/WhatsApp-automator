@@ -185,14 +185,89 @@ The macOS setup uses a native Python Cocoa daemon to listen for `NSWorkspaceDidW
 
 On Windows, you do not need a Python script. You can achieve this natively using the built-in **Task Scheduler**.
 
-1. Open **Task Scheduler** and click **Create Task...**.
-2. **General Tab:** Name it `n8n Wake Listener`.
-3. **Triggers Tab:** Click New. Begin the task **On an event**.
-   - Log: `System`
-   - Source: `Power-Troubleshooter`
-   - Event ID: `1` (This corresponds to the system waking from sleep).
-4. **Actions Tab:** Click New. 
-   - Action: `Start a program`
-   - Program/script: `powershell.exe`
-   - Add arguments: `-WindowStyle Hidden -Command "Invoke-RestMethod -Uri 'http://localhost:5678/webhook/contest-check' -Method Post"`
-5. Save the task. Now, every time you unlock your Windows laptop, it will instantly ping n8n to catch up on any alerts!
+> **💡 Recommended:** Use the automated PowerShell approach below instead of the manual UI steps — it configures all the optimal settings in one command.
+
+**Automated Setup (Recommended):**
+
+Run this in PowerShell as Administrator — it creates the task with a built-in **45-second delay** and **network availability check** to handle hostel/campus Wi-Fi that reconnects slowly after sleep:
+
+```powershell
+$taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers>
+    <EventTrigger>
+      <Enabled>true</Enabled>
+      <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="System"&gt;&lt;Select Path="System"&gt;*[System[Provider[@Name='Microsoft-Windows-Power-Troubleshooter'] and EventID=1]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
+      <Delay>PT45S</Delay>
+    </EventTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT1M</ExecutionTimeLimit>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>powershell.exe</Command>
+      <Arguments>-WindowStyle Hidden -Command "Invoke-RestMethod -Uri 'http://localhost:5678/webhook/contest-check' -Method Post"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"@
+Register-ScheduledTask -TaskName "n8n Wake Listener" -Xml $taskXml -Force
+```
+
+**Why the 45-second delay?** On campus/hostel networks, Wi-Fi takes 10–30 seconds to reconnect after the laptop wakes from sleep. Without the delay, the wake listener fires before the internet is available and the Codeforces/LeetCode API calls fail. The `RunOnlyIfNetworkAvailable` flag adds an extra safety net — if Wi-Fi is still not connected after 45 seconds, the task skips silently (the hourly schedule will catch up anyway).
+
+---
+
+## 🛠️ Troubleshooting
+
+### ❌ "The service refused the connection" on Fetch Codeforces / LeetCode
+
+This is almost always caused by **Cloudflare WARP** or another VPN intercepting Docker's outbound traffic.
+
+Docker containers run inside a WSL2 virtual machine. When WARP is active, it tries to route all network traffic (including Docker's) through Cloudflare's servers — but the containers can't complete WARP's authentication, so all external API calls time out after ~21 seconds.
+
+**Quick fix:** Disable WARP while n8n is running.
+
+**Permanent fix (Split Tunnels):**
+1. Open WARP → Settings → Advanced → **Split Tunnels**
+2. Set mode to **Exclude IPs and domains**
+3. Add these IP ranges:
+   ```
+   172.16.0.0/12
+   10.0.0.0/8
+   ```
+4. Save — WARP stays on for your regular traffic, but Docker containers bypass it entirely.
+
+---
+
+### ❌ "localhost refused to connect" after restarting laptop
+
+Docker Desktop does not auto-start on Windows boot by default. After a full restart:
+
+1. Open **Docker Desktop** from the Start Menu
+2. Accept any license/update prompts that appear
+3. Wait for the whale icon in the system tray to turn **green** ("Engine running")
+4. Your n8n and Evolution API containers will restart automatically (they have `restart: always` set)
+
+If Docker Desktop gets stuck on "Starting...":
+```powershell
+wsl --shutdown
+```
+Then reopen Docker Desktop.
