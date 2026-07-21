@@ -13,6 +13,20 @@
 
 ---
 
+## 📁 Repository Structure
+
+```
+WhatsApp-automator/
+├── docker-compose.yml          # Defines the n8n, Evolution API, Postgres & Redis services
+├── .env.example                # Template for secrets — copy to .env and fill in your values
+├── workflow.json               # The n8n workflow — import this into your n8n instance
+├── wake_listener.py            # Wake listener daemon for macOS (uses PyObjC / launchd)
+├── wake_listener_windows.ps1   # Wake listener setup script for Windows (Task Scheduler)
+└── README.md
+```
+
+---
+
 ## 🏗️ Architecture & Framework
 
 This project is built entirely on a containerized microservices architecture to ensure it runs completely autonomously in the background without needing a cloud provider.
@@ -183,55 +197,28 @@ The macOS setup uses a native Python Cocoa daemon to listen for `NSWorkspaceDidW
 
 ### For Windows
 
-On Windows, you do not need a Python script. You can achieve this natively using the built-in **Task Scheduler**.
+On Windows, the wake listener uses the built-in **Task Scheduler** — no Python needed. A ready-to-run setup script is included in the repo: [`wake_listener_windows.ps1`](./wake_listener_windows.ps1).
 
-> **💡 Recommended:** Use the automated PowerShell approach below instead of the manual UI steps — it configures all the optimal settings in one command.
+**Setup (one command):**
 
-**Automated Setup (Recommended):**
-
-Run this in PowerShell as Administrator — it creates the task with a built-in **45-second delay** and **network availability check** to handle hostel/campus Wi-Fi that reconnects slowly after sleep:
+Open **PowerShell as Administrator**, navigate to the repo folder, and run:
 
 ```powershell
-$taskXml = @"
-<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <Triggers>
-    <EventTrigger>
-      <Enabled>true</Enabled>
-      <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="System"&gt;&lt;Select Path="System"&gt;*[System[Provider[@Name='Microsoft-Windows-Power-Troubleshooter'] and EventID=1]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
-      <Delay>PT45S</Delay>
-    </EventTrigger>
-  </Triggers>
-  <Principals>
-    <Principal id="Author">
-      <LogonType>InteractiveToken</LogonType>
-      <RunLevel>LeastPrivilege</RunLevel>
-    </Principal>
-  </Principals>
-  <Settings>
-    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    <AllowHardTerminate>true</AllowHardTerminate>
-    <StartWhenAvailable>true</StartWhenAvailable>
-    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
-    <AllowStartOnDemand>true</AllowStartOnDemand>
-    <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
-    <ExecutionTimeLimit>PT1M</ExecutionTimeLimit>
-  </Settings>
-  <Actions Context="Author">
-    <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-WindowStyle Hidden -Command "Invoke-RestMethod -Uri 'http://localhost:5678/webhook/contest-check' -Method Post"</Arguments>
-    </Exec>
-  </Actions>
-</Task>
-"@
-Register-ScheduledTask -TaskName "n8n Wake Listener" -Xml $taskXml -Force
+.\wake_listener_windows.ps1
 ```
 
-**Why the 45-second delay?** On campus/hostel networks, Wi-Fi takes 10–30 seconds to reconnect after the laptop wakes from sleep. Without the delay, the wake listener fires before the internet is available and the Codeforces/LeetCode API calls fail. The `RunOnlyIfNetworkAvailable` flag adds an extra safety net — if Wi-Fi is still not connected after 45 seconds, the task skips silently (the hourly schedule will catch up anyway).
+This registers a Task Scheduler task named **`n8n Wake Listener`** with the following hardened settings:
+
+| Setting | Value | Why |
+|---|---|---|
+| Trigger | System wake event (Power-Troubleshooter, EventID 1) | Fires on lid open / resume from sleep |
+| **Delay** | **45 seconds** | Gives hostel/campus Wi-Fi time to reconnect before hitting APIs |
+| **RunOnlyIfNetworkAvailable** | **true** | Skips silently if Wi-Fi is still down — hourly schedule catches up |
+| MultipleInstancesPolicy | IgnoreNew | Prevents duplicate triggers from stacking |
+| Window | Hidden | No terminal flash on every wake event |
+| StartWhenAvailable | true | Catches up if the trigger was missed while the laptop was off |
+
+To verify the task was created, open **Task Scheduler** and look for `n8n Wake Listener`.
 
 ---
 
