@@ -8,10 +8,15 @@
 # Features:
 #   - 45-second delay: gives hostel/campus Wi-Fi time to reconnect before
 #     n8n tries to fetch from Codeforces/LeetCode APIs
+#   - 30-minute cooldown (via wake_trigger.ps1): Windows fires multiple
+#     wake events per session (network, display, USB etc.) — the cooldown
+#     ensures only the first one actually hits the webhook
 #   - RunOnlyIfNetworkAvailable: skips silently if Wi-Fi is still not up
-#     after the delay (the hourly schedule will catch up anyway)
 #   - Hidden PowerShell window: no terminal flashes on wake
 #   - MultipleInstancesPolicy=IgnoreNew: won't stack duplicate triggers
+
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$triggerScript = Join-Path $scriptPath "wake_trigger.ps1"
 
 $taskXml = @"
 <?xml version="1.0" encoding="UTF-16"?>
@@ -44,7 +49,7 @@ $taskXml = @"
   <Actions Context="Author">
     <Exec>
       <Command>powershell.exe</Command>
-      <Arguments>-WindowStyle Hidden -Command "Invoke-RestMethod -Uri 'http://localhost:5678/webhook/contest-check' -Method Post"</Arguments>
+      <Arguments>-WindowStyle Hidden -ExecutionPolicy Bypass -File "$triggerScript"</Arguments>
     </Exec>
   </Actions>
 </Task>
@@ -55,7 +60,7 @@ Register-ScheduledTask -TaskName "n8n Wake Listener" -Xml $taskXml -Force
 Write-Host ""
 Write-Host "✅ Wake Listener task registered successfully!" -ForegroundColor Green
 Write-Host ""
-Write-Host "The task will fire 45 seconds after your laptop wakes from sleep,"
-Write-Host "but only if a network connection is available."
+Write-Host "The task will fire 45 seconds after your laptop wakes from sleep."
+Write-Host "A 30-minute cooldown prevents multiple wake events from spamming the webhook."
 Write-Host ""
 Write-Host "To verify: Open Task Scheduler and look for 'n8n Wake Listener'."
