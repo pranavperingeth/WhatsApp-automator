@@ -9,12 +9,21 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
       - NODE_ENV=production
-      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_WEBHOOK_URL=http://localhost:5678/
       - GENERIC_TIMEZONE=Asia/Kolkata
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
       - EXECUTIONS_DATA_SAVE_ON_PROGRESS=true
       - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
+      # Use Postgres instead of SQLite — makes static data crash-safe
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-postgres}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    depends_on:
+      - postgres
     volumes:
       - n8n_data:/home/node/.n8n
 
@@ -52,8 +61,10 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=evolution
+      - POSTGRES_MULTIPLE_DATABASES=evolution,n8n
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
 
   redis:
     image: redis:7-alpine
